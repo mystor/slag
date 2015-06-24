@@ -1,0 +1,25 @@
+//
+struct Foo =>
+    a: i32
+    b: i32
+
+#[derive(PartialEq, Eq, Debug)]
+enum Bar =>
+    A
+    B
+    C
+    D
+
+fn get_a_foo() =>
+    let my_foo = Foo { a: 10, b: 20 }
+    let other_foo = Foo { a: 20, b: 30 }
+
+    let my_bar = Bar::A
+
+    match my_bar =>
+        Bar::A => my_foo
+        Bar::B => other_foo
+        _ => Foo { a: 30, b: 40 }
+
+fn main() =>
+    assert_eq!(get_a_foo(), Foo { a: 10, b: 20 })
