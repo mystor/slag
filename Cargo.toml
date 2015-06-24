@@ -2,6 +2,10 @@
 name = "slag"
 version = "0.1.0"
 authors = ["Michael Layzell <michael@thelayzells.com>"]
+description = "Rust without braces or semicolons"
+license = "MIT"
+license-file = "LICENSE"
+repository = "https://github.com/mystor/slag"
 
 [dependencies]
 syntex_syntax = "0.7.0"

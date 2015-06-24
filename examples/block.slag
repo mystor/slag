@@ -1,0 +1,5 @@
+fn main() =>
+    let foo = =>
+        10
+    assert_eq!(foo, 10)
+    ()

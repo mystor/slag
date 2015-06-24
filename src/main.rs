@@ -1,6 +1,7 @@
 extern crate syntex_syntax;
 extern crate docopt;
 
+use std::usize;
 use std::path::Path;
 use std::fs::File;
 use std::io::Write;
@@ -41,12 +42,13 @@ fn main() {
     let mut file = File::create(Path::new(&dest)).unwrap();
 
     // Run the syntax transformer
-    handle_tts(&psess, &mut (!0, 0), &mut file, &tts);
+    handle_tts(&psess, &mut (usize::MAX, 0), &mut file, &tts);
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum BlockFlag {
     None,
+    Toplevel,
     Match,
     EnumStruct,
 }
@@ -88,7 +90,7 @@ fn handle_tts(psess: &parse::ParseSess,
               tts: &[TokenTree]) {
     let mut last_line = last_pos.0;
     let mut iter = tts.iter().peekable();
-    let mut indent_stack: Vec<(usize, BlockFlag)> = vec![(0, BlockFlag::None)];
+    let mut indent_stack: Vec<(usize, BlockFlag)> = vec![(0, BlockFlag::Toplevel)];
     let mut block_flag = BlockFlag::None;
 
     loop {
@@ -98,8 +100,9 @@ fn handle_tts(psess: &parse::ParseSess,
         // Check if we should insert a semicolon or close a block!
         if let Some(tt) = opt_tt {
             let (new_line, new_indent, new_last_line, _) = ends_from_span(psess, tt.get_span());
-            if last_pos.0 == !0 { last_pos.0 = new_line; }
-            if new_last_line > last_line { // Consider inserting a semicolon or ending a block
+            if last_line == usize::MAX {
+                last_line = new_line;
+            } else if new_last_line > last_line {
                 last_line = new_last_line;
                 let (old_indent, block_flag) = *indent_stack.last().unwrap();
                 if new_indent == old_indent {
@@ -114,12 +117,21 @@ fn handle_tts(psess: &parse::ParseSess,
                     // or new_indent > old_indent. If the second case is true, that is an err
                     loop {
                         if let Some(x) = indent_stack.last() {
-                            if x.0 == new_indent { break }
+                            if x.0 == new_indent {
+                                break
+                            }
                         } else {
                             panic!("Couldn't find indent level");
                         }
                         write!(file, " }}").unwrap();
                         indent_stack.pop();
+                    }
+
+                    let (_, block_flag) = *indent_stack.last().unwrap();
+                    if block_flag == BlockFlag::None {
+                        write!(file, ";").unwrap();
+                    } else if block_flag != BlockFlag::Toplevel {
+                        write!(file, ",").unwrap();
                     }
                 }
             }
