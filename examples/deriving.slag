@@ -1,0 +1,5 @@
+#[derive(Copy, Clone)]
+enum Foo =>
+    A
+    B
+    C

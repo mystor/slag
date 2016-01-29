@@ -1,0 +1,10 @@
+mod foo =>
+    mod bar =>
+        mod baz =>
+            fn foo() => println!("Hello, World")
+            type Y = i32
+        fn bar() => println!("Hey there")
+
+fn quxx() => println!("woo!")
+
+type X = i32
