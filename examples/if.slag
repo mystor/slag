@@ -1,0 +1,7 @@
+fn main() =>
+    let x = 10
+    if x > 5 =>
+        println!("YAY!")
+    else =>
+        println!("NOOOOO!")
+    ()

@@ -37,7 +37,7 @@ fn main() {
 
     // Open the output file
     if dest == "" {
-        dest = format!("{}.rs", source);
+        dest = format!("{}.rs", source.trim_right_matches(".slag"));
     }
     let mut file = File::create(Path::new(&dest)).unwrap();
 
@@ -48,7 +48,7 @@ fn main() {
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum BlockFlag {
     None,
-    Toplevel,
+    Module,
     Match,
     EnumStruct,
 }
@@ -90,8 +90,9 @@ fn handle_tts(psess: &parse::ParseSess,
               tts: &[TokenTree]) {
     let mut last_line = last_pos.0;
     let mut iter = tts.iter().peekable();
-    let mut indent_stack: Vec<(usize, BlockFlag)> = vec![(0, BlockFlag::Toplevel)];
-    let mut block_flag = BlockFlag::None;
+    let mut indent_stack: Vec<(usize, BlockFlag)> = vec![(0, BlockFlag::Module)];
+    let mut next_block_flag = BlockFlag::None;
+    let mut skip_next_semi = false;
 
     loop {
         // get the next token in the iterator sequence
@@ -107,11 +108,22 @@ fn handle_tts(psess: &parse::ParseSess,
                 let (old_indent, block_flag) = *indent_stack.last().unwrap();
                 if new_indent == old_indent {
                     // Insert a semicolon or comma!!
-                    if block_flag == BlockFlag::None {
-                        write!(file, ";").unwrap();
-                    } else {
-                        write!(file, ",").unwrap();
+                    match block_flag {
+                        BlockFlag::None |
+                        BlockFlag::Module => {
+                            if !skip_next_semi {
+                                write!(file, ";").unwrap();
+                            } else {
+                                skip_next_semi = false;
+                            }
+                        }
+                        _ => {
+                            write!(file, ",").unwrap();
+                        }
                     }
+
+                    // Wipe out the next_block_flag if it is set
+                    next_block_flag = BlockFlag::None;
                 } else if new_indent < old_indent {
                     // Pop items off of the stack until either new_indent = old_indent,
                     // or new_indent > old_indent. If the second case is true, that is an err
@@ -128,10 +140,21 @@ fn handle_tts(psess: &parse::ParseSess,
                     }
 
                     let (_, block_flag) = *indent_stack.last().unwrap();
-                    if block_flag == BlockFlag::None {
-                        write!(file, ";").unwrap();
-                    } else if block_flag != BlockFlag::Toplevel {
-                        write!(file, ",").unwrap();
+                    match block_flag {
+                        BlockFlag::None => {
+                            if let Some(&TtToken(_, Token::Ident(ref id, IdentStyle::Plain))) = opt_tt {
+                                match id.as_str() {
+                                    "else" => {/* do nothing */},
+                                    _ => write!(file, ";").unwrap()
+                                }
+                            } else {
+                                write!(file, ";").unwrap();
+                            }
+                        }
+                        BlockFlag::Module => {/* do nothing */}
+                        _ => {
+                            write!(file, ",").unwrap();
+                        }
                     }
                 }
             }
@@ -140,6 +163,12 @@ fn handle_tts(psess: &parse::ParseSess,
         match opt_tt {
             Some(&TtToken(span, ref tok)) => {
                 match *tok {
+                    Token::Pound => {
+                        skip_next_semi = true;
+                        // write!(file, "ATTRIBUTE_START").unwrap();
+                        print_with_span(psess, last_pos, file,
+                                        &pprust::token_to_string(tok), span);
+                    }
                     Token::FatArrow => {
                         // Match statements actually need the fat arrows to be written to
                         // the output to function - so we write them out.
@@ -155,8 +184,8 @@ fn handle_tts(psess: &parse::ParseSess,
                             }
                             Some(tt) => {
                                 let (_, fcol, lline, _) = ends_from_span(psess, tt.get_span());
-                                indent_stack.push((fcol, block_flag));
-                                block_flag = BlockFlag::None;
+                                indent_stack.push((fcol, next_block_flag));
+                                next_block_flag = BlockFlag::None;
                                 last_line = lline;
                             }
                         }
@@ -164,8 +193,9 @@ fn handle_tts(psess: &parse::ParseSess,
                     _ => {
                         if let Token::Ident(ref id, IdentStyle::Plain) = *tok {
                             match id.as_str() {
-                                "match" => block_flag = BlockFlag::Match,
-                                "struct" | "enum" => block_flag = BlockFlag::EnumStruct,
+                                "match" => next_block_flag = BlockFlag::Match,
+                                "struct" | "enum" => next_block_flag = BlockFlag::EnumStruct,
+                                "mod" => next_block_flag = BlockFlag::Module,
                                 _ => {}
                             }
                         }
