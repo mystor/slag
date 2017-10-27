@@ -7,5 +7,5 @@ license-file = "LICENSE"
 repository = "https://github.com/mystor/slag"
 
 [dependencies]
-syntex_syntax = "0.7.0"
+syntex_syntax = { path = "old_syntex" }
 docopt = "0.6"

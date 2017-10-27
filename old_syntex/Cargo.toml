@@ -1,0 +1,15 @@
+[package]
+name = "syntex_syntax"
+version = "0.7.0"
+authors = [ "erick.tryzelaar@gmail.com" ]
+license = "MIT/Apache-2.0"
+description = "Export of libsyntax for code generation"
+repository = "https://github.com/erickt/rust-syntex"
+
+[dependencies]
+bitflags = "*"
+libc = "*"
+log = "*"
+rustc-serialize = "*"
+term = "*"
+unicode-xid = "*"
